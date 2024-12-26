@@ -85,7 +85,7 @@ function App() {
   const [trash, setTrash] = useAtom(trashAtom);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-  const [pendingContent, setPendingContent] = useAtom(pendingContentAtom);
+  const [_, setPendingContent] = useAtom(pendingContentAtom);
 
   const editor = useEditor({
     extensions: [
@@ -183,19 +183,6 @@ function App() {
     }
     setIsMobileMenuOpen(false);
   }, [editor]);
-
-  const saveCurrentArticle = useCallback(() => {
-    if (currentArticle && pendingContent) {
-      setArticles((prev) =>
-        prev.map((article) =>
-          article.id === currentArticle.id
-            ? { ...article, markdown: pendingContent }
-            : article
-        )
-      );
-      setPendingContent(""); // Clear pending content after save
-    }
-  }, [currentArticle, pendingContent, setArticles, setPendingContent]);
 
   const handleArticleSelect = useCallback(
     (article: RawBlogPost) => {
