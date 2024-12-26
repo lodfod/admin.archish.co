@@ -388,7 +388,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <div
-        className={`min-h-screen flex items-center justify-center ${
+        className={`min-h-screen flex flex-col items-center justify-center ${
           isDarkMode
             ? "bg-gradient-to-br from-slate-950 to-slate-800"
             : "bg-white"
