@@ -14,6 +14,8 @@ import { atomWithStorage } from "jotai/utils";
 import { generateSummary } from "./utils/generateSummary";
 const LIMIT = 1000;
 
+import "./App.css";
+
 const DUMMY_ARTICLES: RawBlogPost[] = [
   {
     id: "1",
@@ -63,6 +65,9 @@ const hashPassword = (input: string): string => {
 // Replace isDarkMode state with atom
 const darkModeAtom = atomWithStorage("darkMode", false);
 
+// Near your other atoms at the top
+const pendingContentAtom = atomWithStorage<string>("pendingContent", "");
+
 function App() {
   const [isDarkMode, setIsDarkMode] = useAtom(darkModeAtom);
   const [sidebarWidth, setSidebarWidth] = useState(288);
@@ -80,6 +85,7 @@ function App() {
   const [trash, setTrash] = useAtom(trashAtom);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [pendingContent, setPendingContent] = useAtom(pendingContentAtom);
 
   const editor = useEditor({
     extensions: [
@@ -105,6 +111,9 @@ function App() {
         },
       }),
     ],
+    parseOptions: {
+      preserveWhitespace: "full",
+    },
     content: currentArticle?.markdown || "",
     editorProps: {
       attributes: {
@@ -118,26 +127,10 @@ function App() {
     onUpdate: ({ editor }) => {
       if (currentArticle) {
         const newContent = editor.getHTML();
-        setArticles((prev) =>
-          prev.map((article) =>
-            article.id === currentArticle.id
-              ? { ...article, markdown: newContent }
-              : article
-          )
-        );
+        setPendingContent(newContent);
       }
     },
   });
-
-  // Update editor content when currentArticle changes
-  useEffect(() => {
-    if (editor && currentArticle) {
-      // Use a timeout to ensure the editor is ready
-      setTimeout(() => {
-        editor.commands.setContent(currentArticle.markdown);
-      }, 0);
-    }
-  }, [currentArticle, editor]);
 
   const percentage = editor
     ? Math.round((100 / LIMIT) * editor.storage.characterCount.characters())
@@ -186,17 +179,70 @@ function App() {
     setCurrentArticle(newArticle);
     setTitle("New Article");
     if (editor) {
-      editor.commands.clearContent(true);
+      editor.commands.setContent("", false, { preserveWhitespace: "full" });
     }
     setIsMobileMenuOpen(false);
   }, [editor]);
 
-  const handleArticleSelect = useCallback((article: RawBlogPost) => {
-    setCurrentArticle(article);
-    setTitle(article.title);
-    window.history.pushState({}, "", `/article/${article.id}`);
-    setIsMobileMenuOpen(false);
-  }, []);
+  const saveCurrentArticle = useCallback(() => {
+    if (currentArticle && pendingContent) {
+      setArticles((prev) =>
+        prev.map((article) =>
+          article.id === currentArticle.id
+            ? { ...article, markdown: pendingContent }
+            : article
+        )
+      );
+      setPendingContent(""); // Clear pending content after save
+    }
+  }, [currentArticle, pendingContent, setArticles, setPendingContent]);
+
+  const handleArticleSelect = useCallback(
+    (article: RawBlogPost) => {
+      // First save the current article if there are pending changes
+      if (currentArticle && editor) {
+        const currentContent = editor.getHTML();
+        setArticles((prev) =>
+          prev.map((a) =>
+            a.id === currentArticle.id ? { ...a, markdown: currentContent } : a
+          )
+        );
+      }
+
+      // Then set the new article
+      setCurrentArticle(article);
+      setTitle(article.title);
+      if (editor) {
+        editor.commands.setContent(article.markdown, false, {
+          preserveWhitespace: "full",
+        });
+      }
+
+      // Update URL using replaceState instead of pushState
+      window.history.replaceState({}, "", `/article/${article.id}`);
+      setIsMobileMenuOpen(false);
+    },
+    [editor, currentArticle]
+  );
+
+  // Modify the URL handling effect to only run once on mount
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/article\/(.+)$/);
+    if (match) {
+      const articleId = match[1];
+      const article = articles.find((a) => a.id === articleId);
+      if (article && !currentArticle) {
+        // Only select if no article is currently selected
+        handleArticleSelect(article);
+      } else if (!article) {
+        // Article not found, redirect to home
+        window.history.pushState({}, "", "/");
+      }
+    }
+    // Remove articles and handleArticleSelect from dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array so it only runs once on mount
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
@@ -229,7 +275,7 @@ function App() {
         setCurrentArticle(null);
         setTitle("");
         if (editor) {
-          editor.commands.clearContent(true);
+          editor.commands.setContent("", false, { preserveWhitespace: "full" });
         }
       }
     },
@@ -272,33 +318,21 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Update keyboard shortcut handler
+  // Add this useEffect after your other effects
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      console.log("Key pressed:", e.key, {
-        altKey: e.altKey,
-        shiftKey: e.shiftKey,
-        metaKey: e.metaKey,
-        ctrlKey: e.ctrlKey,
-        key: e.key,
-      });
-
       // Check for Command + Control + P
       if (e.metaKey && e.ctrlKey && e.key.toLowerCase() === "p") {
-        console.log("Command + Control + P pressed");
         e.preventDefault();
         e.stopPropagation();
         createNewArticle();
-        return false;
       }
     };
 
-    console.log("Setting up keyboard listener");
-    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      console.log("Cleaning up keyboard listener");
-      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [createNewArticle]);
 
@@ -371,55 +405,6 @@ function App() {
     }
   }, []);
 
-  // Add back URL-based routing
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/^\/article\/(.+)$/);
-    if (match) {
-      const articleId = match[1];
-      const article = articles.find((a) => a.id === articleId);
-      if (article) {
-        setCurrentArticle(article);
-        setTitle(article.title);
-        if (editor) {
-          editor.commands.clearContent(true);
-          editor.commands.setContent(article.markdown);
-        }
-      } else {
-        window.history.pushState({}, "", "/");
-      }
-    }
-  }, [articles, editor]);
-
-  // Add handler for browser back/forward buttons
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      const match = path.match(/^\/article\/(.+)$/);
-      if (match) {
-        const articleId = match[1];
-        const article = articles.find((a) => a.id === articleId);
-        if (article) {
-          setCurrentArticle(article);
-          setTitle(article.title);
-          if (editor) {
-            editor.commands.clearContent(true);
-            editor.commands.setContent(article.markdown);
-          }
-        }
-      } else {
-        setCurrentArticle(null);
-        setTitle("");
-        if (editor) {
-          editor.commands.clearContent(true);
-        }
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [articles, editor]);
-
   if (!isAuthenticated) {
     return (
       <div
@@ -429,10 +414,8 @@ function App() {
             : "bg-white"
         }`}
       >
-        <h1 className="text-2xl font-bold dark:text-white font-serif mb-4">
-          Welcome, Admin!
-        </h1>
-        <p className="text-lg mb-4 dark:text-white">This page is protected.</p>
+        <h1 className="text-2xl font-bold font-serif mb-4">Welcome, Admin!</h1>
+        <p className="text-lg mb-4">This page is protected.</p>
         <form onSubmit={handlePasswordSubmit} className="w-full max-w-xs">
           <input
             type="password"
@@ -519,12 +502,23 @@ function App() {
               isDarkMode
                 ? "bg-gradient-to-br from-slate-950 to-slate-800 border-slate-800"
                 : "bg-white border-slate-200"
-            } border-r
+            } 
+            border-r
             z-10
+            flex flex-col
           `}
         >
-          <div className="p-4 pt-20">
-            <div className="flex justify-between items-center ">
+          {/* Fixed Header */}
+          <div
+            className={`p-4 pt-20 absolute top-0 left-0 right-0 z-10
+              ${
+                isDarkMode
+                  ? "bg-gradient-to-b from-slate-950 via-slate-950 to-slate-950/95"
+                  : "bg-gradient-to-b from-white via-white to-white/95"
+              }
+            `}
+          >
+            <div className="flex justify-between items-center">
               <h2
                 className={`text-xl p-3 font-bold font-serif ${
                   isDarkMode ? "text-white" : "text-slate-900"
@@ -536,13 +530,17 @@ function App() {
                 onClick={createNewArticle}
                 className={`px-4 text-xl font-medium py-2 rounded-lg ${
                   isDarkMode
-                    ? " text-white hover:bg-slate-600"
-                    : " text-slate-900 hover:bg-slate-300"
+                    ? "text-white hover:bg-slate-600"
+                    : "text-slate-900 hover:bg-slate-300"
                 } transition-colors`}
               >
                 +
               </button>
             </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="overflow-y-auto h-full pt-40">
             <div className="space-y-1">
               {articles.map((article, index) => (
                 <div key={article.id}>
@@ -665,7 +663,7 @@ function App() {
             </div>
           </div>
 
-          {/* Resize Handle - only show and work on desktop */}
+          {/* Resize Handle */}
           {window.innerWidth >= 1024 && (
             <div
               onMouseDown={startResizing}
