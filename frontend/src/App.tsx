@@ -185,32 +185,15 @@ function App() {
     (article: RawBlogPost) => {
       setCurrentArticle(article);
       setTitle(article.title);
-      if (editor && editor.isEmpty) {
+      if (editor) {
         editor.commands.setContent(article.markdown);
       }
-      // Update URL with article ID
+      // Update URL when selecting article
       window.history.pushState({}, "", `/article/${article.id}`);
-      // Close mobile menu if open
       setIsMobileMenuOpen(false);
     },
     [editor]
   );
-
-  // Handle initial URL on load
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/^\/article\/(.+)$/);
-    if (match) {
-      const articleId = match[1];
-      const article = articles.find((a) => a.id === articleId);
-      if (article) {
-        handleArticleSelect(article);
-      } else {
-        // Article not found, redirect to home
-        window.history.pushState({}, "", "/");
-      }
-    }
-  }, [articles, handleArticleSelect]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
@@ -384,6 +367,53 @@ function App() {
       setIsAuthenticated(true);
     }
   }, []);
+
+  // Add back URL-based routing
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/article\/(.+)$/);
+    if (match) {
+      const articleId = match[1];
+      const article = articles.find((a) => a.id === articleId);
+      if (article) {
+        setCurrentArticle(article);
+        setTitle(article.title);
+        if (editor) {
+          editor.commands.setContent(article.markdown);
+        }
+      } else {
+        window.history.pushState({}, "", "/");
+      }
+    }
+  }, [articles, editor]);
+
+  // Add handler for browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const match = path.match(/^\/article\/(.+)$/);
+      if (match) {
+        const articleId = match[1];
+        const article = articles.find((a) => a.id === articleId);
+        if (article) {
+          setCurrentArticle(article);
+          setTitle(article.title);
+          if (editor) {
+            editor.commands.setContent(article.markdown);
+          }
+        }
+      } else {
+        setCurrentArticle(null);
+        setTitle("");
+        if (editor) {
+          editor.commands.setContent("");
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [articles, editor]);
 
   if (!isAuthenticated) {
     return (
