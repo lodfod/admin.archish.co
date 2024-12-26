@@ -86,6 +86,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [_, setPendingContent] = useAtom(pendingContentAtom);
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -322,6 +323,39 @@ function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [createNewArticle]);
+
+  // Add a function to handle saving the current article
+  const saveCurrentArticle = useCallback(() => {
+    if (currentArticle && editor) {
+      const currentContent = editor.getHTML();
+      setArticles((prev) =>
+        prev.map((a) =>
+          a.id === currentArticle.id ? { ...a, markdown: currentContent } : a
+        )
+      );
+
+      // Show toast and auto-hide after 2 seconds
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    }
+  }, [currentArticle, editor]);
+
+  // Add this useEffect after your other keyboard shortcut effect
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        e.stopPropagation();
+        saveCurrentArticle();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [saveCurrentArticle]);
 
   const handleExport = async () => {
     if (!currentArticle || !editor) return;
@@ -950,6 +984,19 @@ function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showSaveToast && (
+        <div
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg
+            transition-opacity duration-200 ease-in-out
+            ${
+              isDarkMode ? "bg-slate-800 text-white" : "bg-white text-slate-900"
+            }
+          `}
+        >
+          Saved ✓
         </div>
       )}
     </div>
