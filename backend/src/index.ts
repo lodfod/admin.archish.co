@@ -19,7 +19,23 @@ if (result.error) {
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Add debugging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  console.log('Headers:', req.headers);
+  next();
+});
+
+const corsOptions = {
+  origin: ['http://localhost:5173', 'https://archish-co-admin-backend.vercel.app', 'https://admin.archish.co'],
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
 app.use(express.json());
 
 app.use('/api', apiRoutes);
