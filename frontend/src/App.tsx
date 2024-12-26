@@ -391,7 +391,7 @@ function App() {
       // Append and click download link
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${blogPost.title.toLowerCase().replace(/\s+/g, "-")}.json`;
+      a.download = `${blogPost.id}.json`;
 
       // Append to DOM
       document.body.appendChild(a);
