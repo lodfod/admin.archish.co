@@ -105,7 +105,7 @@ function App() {
         },
       }),
     ],
-    content: currentArticle?.markdown || "",
+    content: "",
     editorProps: {
       attributes: {
         class: `prose prose-xs  m-5 focus:outline-none ${
@@ -176,7 +176,7 @@ function App() {
     setCurrentArticle(newArticle);
     setTitle("New Article");
     if (editor) {
-      editor.commands.setContent("");
+      editor.commands.clearContent(true);
     }
     setIsMobileMenuOpen(false);
   }, [editor]);
@@ -186,9 +186,9 @@ function App() {
       setCurrentArticle(article);
       setTitle(article.title);
       if (editor) {
+        editor.commands.clearContent(true);
         editor.commands.setContent(article.markdown);
       }
-      // Update URL when selecting article
       window.history.pushState({}, "", `/article/${article.id}`);
       setIsMobileMenuOpen(false);
     },
@@ -226,7 +226,7 @@ function App() {
         setCurrentArticle(null);
         setTitle("");
         if (editor) {
-          editor.commands.setContent("");
+          editor.commands.clearContent(true);
         }
       }
     },
@@ -379,6 +379,7 @@ function App() {
         setCurrentArticle(article);
         setTitle(article.title);
         if (editor) {
+          editor.commands.clearContent(true);
           editor.commands.setContent(article.markdown);
         }
       } else {
@@ -399,6 +400,7 @@ function App() {
           setCurrentArticle(article);
           setTitle(article.title);
           if (editor) {
+            editor.commands.clearContent(true);
             editor.commands.setContent(article.markdown);
           }
         }
@@ -406,7 +408,7 @@ function App() {
         setCurrentArticle(null);
         setTitle("");
         if (editor) {
-          editor.commands.setContent("");
+          editor.commands.clearContent(true);
         }
       }
     };
