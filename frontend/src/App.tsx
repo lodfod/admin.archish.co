@@ -105,7 +105,7 @@ function App() {
         },
       }),
     ],
-    content: "",
+    content: currentArticle?.markdown || "",
     editorProps: {
       attributes: {
         class: `prose prose-xs  m-5 focus:outline-none ${
@@ -128,6 +128,16 @@ function App() {
       }
     },
   });
+
+  // Update editor content when currentArticle changes
+  useEffect(() => {
+    if (editor && currentArticle) {
+      // Use a timeout to ensure the editor is ready
+      setTimeout(() => {
+        editor.commands.setContent(currentArticle.markdown);
+      }, 0);
+    }
+  }, [currentArticle, editor]);
 
   const percentage = editor
     ? Math.round((100 / LIMIT) * editor.storage.characterCount.characters())
@@ -181,19 +191,12 @@ function App() {
     setIsMobileMenuOpen(false);
   }, [editor]);
 
-  const handleArticleSelect = useCallback(
-    (article: RawBlogPost) => {
-      setCurrentArticle(article);
-      setTitle(article.title);
-      if (editor) {
-        editor.commands.clearContent(true);
-        editor.commands.setContent(article.markdown);
-      }
-      window.history.pushState({}, "", `/article/${article.id}`);
-      setIsMobileMenuOpen(false);
-    },
-    [editor]
-  );
+  const handleArticleSelect = useCallback((article: RawBlogPost) => {
+    setCurrentArticle(article);
+    setTitle(article.title);
+    window.history.pushState({}, "", `/article/${article.id}`);
+    setIsMobileMenuOpen(false);
+  }, []);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
