@@ -435,10 +435,12 @@ function App() {
             : "bg-white"
         }`}
       >
-        <h1 className="text-2xl font-bold dark:text-white font-serif mb-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-serif mb-2">
           Welcome, Admin!
         </h1>
-        <p className="text-lg dark:text-white mb-5">This page is protected.</p>
+        <p className="text-lg text-slate-900 dark:text-white mb-5">
+          This page is protected.
+        </p>
         <form onSubmit={handlePasswordSubmit} className="w-full max-w-xs">
           <input
             type="password"
